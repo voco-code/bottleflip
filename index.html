@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bottle Flip!</title>
+    <style>
+        /* Базовые стили и сброс */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
+        
+        /* Экраны */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; }
+        .active { display: flex; }
+
+        /* Загрузочный экран */
+        #loading-screen { background: url('https://i.ibb.co/My163CXF/IMG-4177.jpg') center/cover no-repeat; }
+        .loading-bar-container { position: absolute; bottom: 10%; left: 10%; width: 80%; height: 20px; background: #555; border-radius: 10px; overflow: hidden; }
+        .loading-bar { height: 100%; width: 0%; background: yellow; transition: width 0.5s linear; }
+
+        /* Меню */
+        #menu-screen { background: url('https://i.ibb.co/1tQG1Svt/IMG-6213.jpg') center/cover no-repeat; justify-content: center; align-items: center; }
+        #menu-screen::before { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 1; }
+        .menu-ui { z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; }
+        
+        .coins-display { position: absolute; top: 20px; right: 20px; background: gray; padding: 10px 15px; display: flex; align-items: center; z-index: 10; }
+        .coins-display span:first-child { color: white; font-weight: bold; margin-right: 5px; }
+        .coins-display span:last-child { color: yellow; font-weight: bold; }
+
+        button { padding: 15px 30px; margin: 10px; font-size: 20px; font-weight: bold; color: black; border: none; border-radius: 10px; cursor: pointer; text-transform: uppercase; transition: transform 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        button:active { transform: scale(0.95); }
+        .btn-green { background: #4CAF50; }
+        .btn-yellow { background: #FFEB3B; }
+        .btn-pink { background: #E91E63; }
+        .btn-blue { background: #2196F3; }
+        .btn-close { position: absolute; top: 15px; right: 15px; width: 40px; height: 40px; background: red; color: black; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; padding: 0; margin: 0; }
+
+        /* Модальные окна */
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; display: none; flex-direction: column; padding: 20px; color: white; overflow-y: auto; }
+        .modal.active { display: flex; }
+        .modal h1 { text-align: center; margin-bottom: 20px; font-size: 28px; }
+
+        /* Магазин */
+        .offer { background: #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; position: relative; }
+        .offer h2 { color: white; font-size: 18px; margin-bottom: 10px; }
+        .offer p { font-size: 14px; margin-bottom: 15px; color: #ddd; }
+        .badge { position: absolute; top: -10px; right: -10px; background: red; color: black; padding: 5px 10px; font-weight: bold; font-size: 12px; transform: rotate(10deg); }
+        
+        /* Персонажи */
+        @keyframes rainbow { 0%{color:red} 15%{color:orange} 30%{color:yellow} 45%{color:green} 60%{color:blue} 75%{color:indigo} 100%{color:violet} }
+        .rainbow-text { animation: rainbow 2s infinite linear; font-size: 32px; text-align: center; margin-bottom: 20px; font-weight: bold; text-shadow: 2px 2px 0px #000;}
+        .char-row { background: #222; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .char-name { font-size: 20px; font-weight: bold; }
+        .char-buttons { display: flex; gap: 10px; }
+        .char-buttons button { margin: 0; padding: 10px; font-size: 14px; }
+
+        /* Прокачка */
+        #upgrade-modal { background: #000; }
+        .back-arrow { position: absolute; top: 15px; left: 15px; font-size: 30px; color: white; cursor: pointer; z-index: 30;}
+        .stats-box { background: #111; padding: 15px; border: 1px solid #333; margin-bottom: 20px; text-align: center; }
+        .stats-box div { margin: 5px 0; color: #ccc; }
+        .upgrade-info { text-align: center; margin-bottom: 20px; }
+        .upgrade-icon { width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle, #555, #222); margin: 0 auto 15px auto; border: 4px solid gold; display: flex; justify-content: center; align-items: center; font-size: 40px; box-shadow: 0 0 15px gold; }
+        
+        /* Игра */
+        #game-screen { background-color: #000; position: relative; }
+        #game-img { width: 100%; height: 100%; object-fit: cover; }
+        .score-display { position: absolute; top: 20px; left: 20px; font-size: 60px; font-weight: bold; color: #4CAF50; z-index: 10; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
+        
+        /* Кастомный Алерт */
+        #custom-alert { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index: 100; display:none; justify-content:center; align-items:center; }
+        .alert-box { background: #fff; padding: 20px; border-radius: 10px; text-align: center; min-width: 250px; }
+        .alert-box h2 { color: black; margin-bottom: 15px; font-size: 24px; }
+        .alert-box button { background: #4CAF50; color: black; }
+    </style>
+</head>
+<body>
+
+    <!-- ЗАГРУЗКА -->
+    <div id="loading-screen" class="screen active">
+        <div class="loading-bar-container">
+            <div id="loading-bar" class="loading-bar"></div>
+        </div>
+    </div>
+
+    <!-- ГЛАВНОЕ МЕНЮ -->
+    <div id="menu-screen" class="screen">
+        <div class="coins-display">
+            <span>Монеты:</span>
+            <span id="menu-coins">0</span>
+        </div>
+        <div class="menu-ui">
+            <button class="btn-green" onclick="startGame()">ИГРАТЬ</button>
+            <button class="btn-yellow" onclick="openModal('shop-modal')">МАГАЗИН</button>
+            <button class="btn-pink" onclick="openModal('chars-modal')">Персонажи</button>
+        </div>
+    </div>
+
+    <!-- МАГАЗИН -->
+    <div id="shop-modal" class="modal">
+        <button class="btn-close" onclick="closeModal('shop-modal')">X</button>
+        <h1>Магазин</h1>
+        
+        <div class="offer" id="offer-niko">
+            <div class="badge">СКИДКА!</div>
+            <h2>СУПЕР-БУТЫЛОЧКА?</h2>
+            <p>Да! Вы поняли! Купите розовую бутылку крутой водки за 299 монет!</p>
+            <button class="btn-green" onclick="buyNiko()">Купить за 299 монет</button>
+        </div>
+
+        <div class="offer" id="offer-hop">
+            <h2>ЛЮБИТЕ ДВОЙНОЙ ХОП?</h2>
+            <p>За 1 промах ты сразу проходишь через 2 уровня без проигрыша! Купите это всего за 799 монет!</p>
+            <button class="btn-green" onclick="buyHop()">Купить за 799 монет</button>
+        </div>
+    </div>
+
+    <!-- ПЕРСОНАЖИ -->
+    <div id="chars-modal" class="modal">
+        <button class="btn-close" onclick="closeModal('chars-modal')">X</button>
+        <div class="rainbow-text">ПЕРСОНАЖИ!!!</div>
+        
+        <div class="char-row">
+            <div class="char-name">Гомик</div>
+            <div class="char-buttons">
+                <button class="btn-green" onclick="selectChar('gomik')">Выбрать</button>
+                <button class="btn-blue" onclick="openUpgrade('gomik')">Прокачка</button>
+            </div>
+        </div>
+
+        <div class="char-row" id="char-niko-row" style="display:none;">
+            <div class="char-name">Нико</div>
+            <div class="char-buttons">
+                <button class="btn-green" onclick="selectChar('niko')">Выбрать</button>
+                <button class="btn-blue" onclick="openUpgrade('niko')">Прокачка</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПРОКАЧКА -->
+    <div id="upgrade-modal" class="modal">
+        <div class="back-arrow" onclick="backToChars()">←</div>
+        <h1 style="margin-top: 40px;">ПРОКАЧКА!</h1>
+        
+        <div class="stats-box">
+            <h2 id="upg-name" style="color:white; margin-bottom:10px;">Имя</h2>
+            <div id="upg-lvl">Уровень: 1</div>
+            <div id="upg-played">Сыграно матчей: 0</div>
+            <div id="upg-defeats">Поражений: 0</div>
+            <div id="upg-throws">Бросков: 0</div>
+        </div>
+
+        <div class="upgrade-info">
+            <div class="upgrade-icon" id="upg-icon">I</div>
+            <h3 id="upg-title" style="color: yellow; margin-bottom: 5px;">Бывший начальник</h3>
+            <p id="upg-desc" style="font-size: 14px; margin-bottom: 10px;">Если бутылка один раз упадет то будет только 1 шанс что ты не проиграешь</p>
+            <p id="upg-price" style="font-weight: bold; color: #4CAF50;">Цена: Нет (Автоматически)</p>
+        </div>
+
+        <button class="btn-green" id="btn-upgrade" onclick="buyUpgrade()" style="width: 100%; margin: 0;">Прокачать</button>
+    </div>
+
+    <!-- ЭКРАН ИГРЫ -->
+    <div id="game-screen" class="screen">
+        <div class="score-display" id="game-score">0/5</div>
+        <img id="game-img" src="" alt="Game Area">
+    </div>
+
+    <!-- КАСТОМНЫЙ АЛЕРТ -->
+    <div id="custom-alert">
+        <div class="alert-box">
+            <h2 id="alert-text">Текст</h2>
+            <button onclick="closeAlert()">ОК</button>
+        </div>
+    </div>
+
+<script>
+    // --- ПРЕДЗАГРУЗКА ИЗОБРАЖЕНИЙ ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ ---
+    const imageUrls = {
+        menuGomik: 'https://i.ibb.co/1tQG1Svt/IMG-6213.jpg',
+        menuNiko: 'https://i.ibb.co/Hf0x8WYv/IMG-6215.jpg',
+        gomik: { start: 'https://i.ibb.co/cKS89gNv/IMG-6219.jpg', win: 'https://i.ibb.co/7dD8PYGW/IMG-6217.jpg', fail: 'https://i.ibb.co/TM8WPc2n/IMG-6218.jpg' },
+        niko: { start: 'https://i.ibb.co/KcPhdS6X/IMG-6220.jpg', win: 'https://i.ibb.co/9kQPhpQw/IMG-6221.jpg', fail: 'https://i.ibb.co/zH2FHzGj/IMG-6222.jpg' }
+    };
+
+    Object.values(imageUrls).forEach(val => {
+        if (typeof val === 'string') { new Image().src = val; }
+        else { new Image().src = val.start; new Image().src = val.win; new Image().src = val.fail; }
+    });
+
+    // --- СОСТОЯНИЕ ИГРЫ ---
+    let state = {
+        coins: 1000, // Дано немного для старта и тестов. По умолчанию можно поставить 0.
+        currentChar: 'gomik',
+        shop: { niko: false, doubleHop: false },
+        chars: {
+            gomik: { name: 'Гомик', level: 1, played: 0, defeats: 0, throws: 0 },
+            niko: { name: 'Нико', level: 1, played: 0, defeats: 0, throws: 0 }
+        }
+    };
+
+    // Данные уровней прокачки
+    const upgradeData = {
+        1: { title: "Бывший начальник", price: 0, icon: "🛡️", desc: "Если бутылка один раз упадет то будет только 1 шанс что ты не проиграешь" },
+        2: { title: "Трогание", price: 277, icon: "⚡", desc: "Быстрый свайп = авто 5/5. Бутылка в 2x. 2 шанса Not падение." },
+        3: { title: "Щит земли", price: 399, icon: "🌍", desc: "4 шанса Not Падение. Неправильный свайп = победа + 100 монет." },
+        4: { title: "Полное заземление", price: 4999, icon: "♾️", desc: "10 шансов Not Падение + полное бессмертие." },
+        5: { title: "МАКСИМУМ", price: "МАКС", icon: "⭐", desc: "Персонаж полностью прокачан." }
+    };
+
+    let selectedUpgradeChar = '';
+
+    // --- ИНИЦИАЛИЗАЦИЯ И ЗАГРУЗКА ---
+    window.onload = () => {
+        // Логика полоски загрузки (как в ТЗ)
+        const bar = document.getElementById('loading-bar');
+        setTimeout(() => { bar.style.width = '5%'; }, 5000);
+        setTimeout(() => { bar.style.width = '47%'; }, 10000);
+        setTimeout(() => { bar.style.width = '100%'; }, 14000);
+        setTimeout(() => { 
+            document.getElementById('loading-screen').classList.remove('active');
+            document.getElementById('menu-screen').classList.add('active');
+            updateUI();
+        }, 14500);
+    };
+
+    // --- УТИЛИТЫ ---
+    function updateUI() {
+        document.getElementById('menu-coins').innerText = state.coins;
+        document.getElementById('menu-screen').style.backgroundImage = `url('${state.currentChar === 'gomik' ? imageUrls.menuGomik : imageUrls.menuNiko}')`;
+        if (state.shop.niko) {
+            document.getElementById('offer-niko').style.display = 'none';
+            document.getElementById('char-niko-row').style.display = 'flex';
+        }
+        if (state.shop.doubleHop) {
+            document.getElementById('offer-hop').style.display = 'none';
+        }
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); updateUI(); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    
+    function showAlert(text, callback) {
+        document.getElementById('alert-text').innerText = text;
+        const alertBox = document.getElementById('custom-alert');
+        alertBox.style.display = 'flex';
+        alertBox.onclick = () => {
+            alertBox.style.display = 'none';
+            alertBox.onclick = null;
+            if(callback) callback();
+        }
+    }
+
+    // --- МАГАЗИН И ПЕРСОНАЖИ ---
+    function buyNiko() {
+        if (state.coins >= 299) {
+            state.coins -= 299;
+            state.shop.niko = true;
+            selectChar('niko');
+            updateUI();
+        } else { showAlert("Не хватает монет!"); }
+    }
+
+    function buyHop() {
+        if (state.coins >= 799) {
+            state.coins -= 799;
+            state.shop.doubleHop = true;
+            updateUI();
+        } else { showAlert("Не хватает монет!"); }
+    }
+
+    function selectChar(id) { state.currentChar = id; updateUI(); }
+
+    // --- ПРОКАЧКА ---
+    function openUpgrade(charId) {
+        closeModal('chars-modal');
+        openModal('upgrade-modal');
+        selectedUpgradeChar = charId;
+        renderUpgrade();
+    }
+
+    function backToChars() { closeModal('upgrade-modal'); openModal('chars-modal'); }
+
+    function renderUpgrade() {
+        const char = state.chars[selectedUpgradeChar];
+        document.getElementById('upg-name').innerText = char.name;
+        document.getElementById('upg-lvl').innerText = "Уровень: " + char.level;
+        document.getElementById('upg-played').innerText = "Сыграно матчей: " + char.played;
+        document.getElementById('upg-defeats').innerText = "Поражений: " + char.defeats;
+        document.getElementById('upg-throws').innerText = "Бросков: " + char.throws;
+
+        const nextLvl = char.level < 4 ? char.level + 1 : 5;
+        const upg = upgradeData[nextLvl];
+        
+        document.getElementById('upg-icon').innerText = upg.icon;
+        document.getElementById('upg-title').innerText = upg.title;
+        document.getElementById('upg-desc').innerText = upg.desc;
+        document.getElementById('upg-price').innerText = nextLvl === 5 ? "МАКС" : "Цена: " + upg.price + " монет";
+        
+        const btn = document.getElementById('btn-upgrade');
+        if (nextLvl === 5) { btn.style.display = 'none'; } 
+        else { btn.style.display = 'block'; }
+    }
+
+    function buyUpgrade() {
+        const char = state.chars[selectedUpgradeChar];
+        if (char.level >= 4) return;
+        const nextLvl = char.level + 1;
+        const price = upgradeData[nextLvl].price;
+
+        if (state.coins >= price) {
+            state.coins -= price;
+            char.level = nextLvl;
+            renderUpgrade();
+            updateUI();
+        } else {
+            showAlert("Не хватает монет!");
+        }
+    }
+
+    // --- ИГРОВАЯ МЕХАНИКА ---
+    let gameScore = 0;
+    let notDropChances = 0;
+    let isPlaying = false;
+    let startY = 0, startTime = 0;
+    let isAnimating = false;
+
+    const gameScreen = document.getElementById('game-screen');
+    const gameImg = document.getElementById('game-img');
+    const scoreText = document.getElementById('game-score');
+
+    function startGame() {
+        document.getElementById('menu-screen').classList.remove('active');
+        gameScreen.classList.add('active');
+        
+        gameScore = 0;
+        isPlaying = true;
+        isAnimating = false;
+        scoreText.innerText = "0/5";
+        gameImg.src = imageUrls[state.currentChar].start;
+
+        const char = state.chars[state.currentChar];
+        char.played += 1;
+
+        // Расчет шансов Not-Drop
+        if (char.level === 1) notDropChances = 1;
+        if (char.level === 2) notDropChances = 2;
+        if (char.level === 3) notDropChances = 4;
+        if (char.level === 4) notDropChances = 9999; // Бессмертие
+
+        updateUI();
+    }
+
+    function endGame(win, bonusCoins = 0) {
+        isPlaying = false;
+        if (win) {
+            let reward = 120 + bonusCoins;
+            state.coins += reward;
+            showAlert(`ПОБЕДА!\nПолучено монет: ${reward}`, returnToMenu);
+        } else {
+            state.chars[state.currentChar].defeats += 1;
+            showAlert("Ты проиграл!", returnToMenu);
+        }
+    }
+
+    function returnToMenu() {
+        gameScreen.classList.remove('active');
+        document.getElementById('menu-screen').classList.add('active');
+        updateUI();
+    }
+
+    // Управление свайпами
+    gameScreen.addEventListener('touchstart', e => {
+        if(!isPlaying || isAnimating) return;
+        startY = e.touches[0].clientY;
+        startTime = Date.now();
+    });
+
+    gameScreen.addEventListener('touchend', e => {
+        if(!isPlaying || isAnimating) return;
+        let endY = e.changedTouches[0].clientY;
+        let endTime = Date.now();
+        processSwipe(startY - endY, endTime - startTime);
+    });
+
+    // Для тестов на ПК мышкой
+    gameScreen.addEventListener('mousedown', e => {
+        if(!isPlaying || isAnimating) return;
+        startY = e.clientY;
+        startTime = Date.now();
+    });
+
+    gameScreen.addEventListener('mouseup', e => {
+        if(!isPlaying || isAnimating) return;
+        let endY = e.clientY;
+        let endTime = Date.now();
+        processSwipe(startY - endY, endTime - startTime);
+    });
+
+    function processSwipe(distance, time) {
+        if (distance < 30) return; // Игнорируем случайные тапы
+        
+        state.chars[state.currentChar].throws += 1;
+        let speed = distance / time;
+        let isFast = speed > 1.2; // Порог скорости
+        let charLvl = state.chars[state.currentChar].level;
+
+        // Логика прокачки:
+        // Уровень 2: быстрый свайп = авто 5/5
+        if (charLvl === 2 && isFast) {
+            gameScore = 5;
+            scoreText.innerText = "5/5";
+            animateFlip('win', () => endGame(true));
+            return;
+        }
+
+        // Уровень 3: неправильный свайп (быстрый) = сразу конец уровня + 100 монет
+        if (charLvl === 3 && isFast) {
+            animateFlip('win', () => endGame(true, 100));
+            return;
+        }
+
+        if (isFast) {
+            // ПРОМАХ
+            handleFail();
+        } else {
+            // УСПЕХ (Медленно плавно)
+            gameScore += (state.shop.doubleHop ? 2 : 1);
+            if(gameScore > 5) gameScore = 5;
+            scoreText.innerText = gameScore + "/5";
+            
+            animateFlip('win', () => {
+                if (gameScore >= 5) {
+                    endGame(true);
+                    if(state.shop.doubleHop) state.shop.doubleHop = false; // Тратим хоп
+                }
+            });
+        }
+    }
+
+    function handleFail() {
+        if (notDropChances > 0) {
+            notDropChances--;
+            // Спасение
+            animateFlip('fail', () => {
+                // Возвращаемся в исходное состояние для следующего броска
+            });
+        } else {
+            // Полный проигрыш
+            animateFlip('fail', () => endGame(false));
+        }
+    }
+
+    function animateFlip(result, callback) {
+        isAnimating = true;
+        gameImg.src = imageUrls[state.currentChar][result];
+        setTimeout(() => {
+            if(isPlaying) gameImg.src = imageUrls[state.currentChar].start;
+            isAnimating = false;
+            if(callback) callback();
+        }, 600); // 0.6 секунды на показ картинки результата
+    }
+
+</script>
+</body>
+</html>
